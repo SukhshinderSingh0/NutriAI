@@ -28,22 +28,26 @@ app.get('/api/health', (req, res) => {
 
 // Database Connection & Server Start
 const startServer = async () => {
+  // Start the server first so Railway knows we are alive
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+  });
+
   try {
-    const mongoURI = process.env.MONGO_URI;
+    const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI;
     if (!mongoURI) {
       console.warn('WARNING: MONGO_URI is not defined in the environment variables.');
-      console.warn('Server will start, but database connections will fail.');
+      console.warn('Server is running, but database connections will fail.');
     } else {
-      await mongoose.connect(mongoURI);
+      // Connect to MongoDB asynchronously
+      await mongoose.connect(mongoURI, {
+        serverSelectionTimeoutMS: 5000 // Timeout after 5 seconds instead of hanging
+      });
       console.log('✅ Connected to MongoDB successfully.');
     }
-
-    app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
-    });
   } catch (error) {
     console.error('❌ Error connecting to MongoDB:', error.message);
-    process.exit(1);
+    // Don't kill the server, just log the error so we can see it in Railway
   }
 };
 
