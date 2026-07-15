@@ -42,7 +42,7 @@ exports.createOrUpdateProfile = async (req, res) => {
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileData },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     res.status(200).json({ profile, metrics });
