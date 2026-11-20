@@ -10,12 +10,10 @@ const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
 const SPOONACULAR_BASE = 'https://api.spoonacular.com';
 
 async function generateMealPlanWithAI(profile, days = 3) {
-  const apiKey = getGeminiKey();
-  const model = getGeminiModel();
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const apiKey = (getGeminiKey() || '').trim();
 
   if (!apiKey) {
-    console.log('Gemini API key not found in env.');
+    console.warn('Gemini API key not found in env.');
     return null;
   }
 
@@ -58,56 +56,77 @@ Make meals practical, delicious, and diverse across days.
 Include 4-8 ingredients and 3-6 step instructions for each meal.
 The "searchQuery" should be a specific, searchable recipe name.`;
 
-  const MAX_RETRIES = 3;
-  const RETRY_DELAYS = [2000, 5000, 10000]; // 2s, 5s, 10s
+  const candidateModels = Array.from(new Set([
+    process.env.GEMINI_MODEL,
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.5-flash'
+  ].filter(Boolean)));
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(`${geminiUrl}?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.9,
-            maxOutputTokens: 8192,
-            responseMimeType: "application/json",
-          },
-        }),
-      });
+  const MAX_RETRIES = 2;
+  const RETRY_DELAYS = [2000, 5000];
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          if (attempt < MAX_RETRIES) {
-            const delay = RETRY_DELAYS[attempt];
-            console.warn(`Gemini 429 rate limit – retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})…`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            continue; // retry
+  for (const model of candidateModels) {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(`${geminiUrl}?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              topP: 0.9,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.text();
+          console.warn(`Gemini (${model}) returned status ${response.status}:`, errBody);
+
+          if (response.status === 429) {
+            if (attempt < MAX_RETRIES) {
+              const delay = RETRY_DELAYS[attempt];
+              console.warn(`Gemini 429 rate limit – retrying in ${delay / 1000}s…`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              continue;
+            }
+            break; // Try next candidate model
           }
-          console.warn('Gemini API rate limit reached after all retries.');
-          return null;
+
+          if (response.status === 404) {
+            // Model not found in this API version or account, fallback to next model
+            console.warn(`Model ${model} not available (404), trying next model...`);
+            break;
+          }
+
+          throw new Error(`Gemini API error [${response.status}]: ${errBody.slice(0, 200)}`);
         }
-        throw new Error(`Gemini API error: ${response.status}`);
-      }
 
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          console.log(`✅ Successfully generated plan with model: ${model}`);
+          return JSON.parse(jsonMatch[0]);
+        }
+        throw new Error('Could not parse meal plan from Gemini response');
+      } catch (error) {
+        if (attempt < MAX_RETRIES && error.message?.includes('fetch')) {
+          const delay = RETRY_DELAYS[attempt];
+          console.warn(`Gemini network error – retrying in ${delay / 1000}s: ${error.message}`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        console.warn(`Gemini attempt failed for ${model}:`, error.message);
+        break; // try next candidate model
       }
-      throw new Error('Could not parse meal plan from Gemini response');
-    } catch (error) {
-      if (attempt < MAX_RETRIES && error.message?.includes('fetch')) {
-        const delay = RETRY_DELAYS[attempt];
-        console.warn(`Gemini network error – retrying in ${delay / 1000}s: ${error.message}`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      console.warn('Gemini API request failed:', error.message);
-      return null;
     }
   }
   return null;
