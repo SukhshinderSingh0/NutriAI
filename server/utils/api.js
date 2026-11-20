@@ -71,9 +71,18 @@ The "searchQuery" should be a specific, searchable recipe name.`;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const response = await fetch(`${geminiUrl}?key=${apiKey}`, {
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        };
+        // Also support Bearer format if an OAuth/access token is provided
+        if (apiKey.startsWith('ya29.') || apiKey.startsWith('AQ.')) {
+          headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+
+        const response = await fetch(`${geminiUrl}?key=${encodeURIComponent(apiKey)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
