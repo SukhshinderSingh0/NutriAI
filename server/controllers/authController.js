@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 const generateToken = (id) => {
@@ -11,6 +12,12 @@ const generateToken = (id) => {
 exports.registerUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        message: 'Database is not connected. Please check MongoDB Atlas connection and Network Access (IP whitelist).' 
+      });
+    }
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide both email and password.' });
@@ -55,6 +62,12 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ 
+        message: 'Database is not connected. Please check MongoDB Atlas connection and Network Access (IP whitelist).' 
+      });
+    }
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide both email and password.' });

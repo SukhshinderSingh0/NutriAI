@@ -46,7 +46,10 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(true);
       return { success: true };
     } catch (err) {
-      const message = err.response?.data?.message || 'Login failed. Please try again.';
+      const message = err.response?.data?.message || 
+        (err.code === 'ERR_NETWORK' || !err.response 
+          ? 'Unable to connect to backend server. Please verify VITE_API_URL and network.' 
+          : 'Login failed. Please try again.');
       setError(message);
       return { success: false, message };
     }
@@ -61,7 +64,10 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(true);
       return { success: true };
     } catch (err) {
-      const message = err.response?.data?.message || 'Registration failed. Please try again.';
+      const message = err.response?.data?.message || 
+        (err.code === 'ERR_NETWORK' || !err.response 
+          ? 'Unable to connect to backend server. Please verify VITE_API_URL and network.' 
+          : 'Registration failed. Please try again.');
       setError(message);
       return { success: false, message };
     }
