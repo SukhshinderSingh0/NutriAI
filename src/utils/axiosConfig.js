@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const rawApiUrl = import.meta.env.VITE_API_URL;
+let rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+if (rawApiUrl && !rawApiUrl.startsWith('http://') && !rawApiUrl.startsWith('https://')) {
+  rawApiUrl = `https://${rawApiUrl}`;
+}
 // Strip trailing slashes to prevent malformed URLs like https://host//api/...
 const resolvedBaseURL = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : 'http://localhost:5001';
 
