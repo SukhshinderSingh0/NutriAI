@@ -75,13 +75,18 @@ The "searchQuery" should be a specific, searchable recipe name.`;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const headers = { 'Content-Type': 'application/json' };
-        let requestUrl = `${geminiUrl}?key=${encodeURIComponent(apiKey)}`;
+        const headers = { 
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        };
+        let requestUrl = geminiUrl;
 
-        // If an OAuth access token was provided instead of an API key
-        if (apiKey.startsWith('ya29.')) {
+        // Legacy AIza keys can use query parameter, while modern AQ keys require x-goog-api-key header without ?key
+        if (apiKey.startsWith('AIza')) {
+          requestUrl = `${geminiUrl}?key=${encodeURIComponent(apiKey)}`;
+        } else if (apiKey.startsWith('ya29.')) {
+          delete headers['x-goog-api-key'];
           headers['Authorization'] = `Bearer ${apiKey}`;
-          requestUrl = geminiUrl; // No ?key= parameter for OAuth tokens
         }
 
         const response = await fetch(requestUrl, {
