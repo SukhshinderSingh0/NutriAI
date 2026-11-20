@@ -3,14 +3,18 @@
  * Handles communication with Gemini and Spoonacular APIs.
  */
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const getGeminiKey = () => process.env.GEMINI_API_KEY || '';
+const getGeminiModel = () => process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY || '';
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
 const SPOONACULAR_BASE = 'https://api.spoonacular.com';
 
 async function generateMealPlanWithAI(profile, days = 3) {
-  if (!GEMINI_API_KEY) {
+  const apiKey = getGeminiKey();
+  const model = getGeminiModel();
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+  if (!apiKey) {
     console.log('Gemini API key not found in env.');
     return null;
   }
@@ -59,7 +63,7 @@ The "searchQuery" should be a specific, searchable recipe name.`;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`${geminiUrl}?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -239,7 +243,7 @@ async function enrichMealPlan(mealPlan, diet = '') {
 }
 
 function hasGeminiKey() {
-  return !!GEMINI_API_KEY;
+  return !!getGeminiKey();
 }
 
 function hasSpoonacularKey() {
